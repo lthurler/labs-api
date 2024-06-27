@@ -81,7 +81,7 @@ final class UserController extends AbstractController
 
         if ($user->uuid !== $id) {
             return $this->response->json([
-                'error' => 'Você não tem permissão para autalizar este usuário.',
+                'error' => 'Você não tem permissão para atualizar este usuário.',
             ], 403);
         }
 
@@ -108,6 +108,34 @@ final class UserController extends AbstractController
 
         return $this->response->json([
             'message' => 'Usuário atualizado com sucesso!',
+            'user' => $user,
+        ]);
+    }
+
+    public function updateUserType(RequestInterface $request, $id)
+    {
+        $user = User::query()->where('uuid', $id)->first();
+
+        if (empty($user)) {
+            return $this->response->json([
+                'error' => 'Usuário não encontrado.',
+            ], 404);
+        }
+
+        if ($user->uuid !== $id) {
+            return $this->response->json([
+                'error' => 'Você não tem permissão para atualizar este usuário.',
+            ], 403);
+        }
+
+        $userType = $this->request->input('user_type');
+
+        $user->user_type = $userType;        
+
+        $user->save();
+
+        return $this->response->json([
+            'message' => 'Tipo de usuário atualizado com sucesso!',
             'user' => $user,
         ]);
     }

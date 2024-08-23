@@ -26,6 +26,12 @@ final class UserController extends AbstractController
     #[Value(key: 'register_token')]
     private $registerToken;
 
+    #[Value(key: 'defaultPermissions.admin_default_permissions')]
+    private $defaultAdminPermissions;
+
+    #[Value(key: 'defaultPermissions.founder_default_permissions')]
+    private $defaultFounderPermissions;
+
     public function __construct(
         LoginRepository $loginRepository,
     ) {
@@ -33,17 +39,21 @@ final class UserController extends AbstractController
     }
 
     public function index()
-    {        
-        return User::select(
+    {
+        $user = User::select(
             'uuid',
             'name',
             'cidade',
             'estado',
             'linkedin',
+            'user_type',
+            'permissions',
             'discord',
             'created_at',
             'updated_at'
         )->get();
+
+        return $this->response->json($user);
     }
 
     public function create(UserRegisterRequest $request)
@@ -109,7 +119,7 @@ final class UserController extends AbstractController
         return $this->response->json([
             'message' => 'Usuário atualizado com sucesso!',
             'user' => $user,
-        ]);
+        ], 200);
     }
 
     public function updateUserType(RequestInterface $request, $id)
@@ -128,19 +138,33 @@ final class UserController extends AbstractController
             ], 403);
         }
 
+        if ($user->user_type !== 'admin') {
+            return $this->response->json([
+                'error' => 'Você não tem permissão para atualizar este usuário.',
+            ], 403);
+        }
+
         $userType = $this->request->input('user_type');
 
-        $user->user_type = $userType;        
+        $user->user_type = $userType;
+
+        if ($userType == 'founder') {
+            $user->permissions = serialize($this->defaultFounderPermissions);
+        }
+
+        if ($userType == 'admin') {
+            $user->permissions = serialize($this->defaultAdminPermissions);
+        }
 
         $user->save();
 
         return $this->response->json([
             'message' => 'Tipo de usuário atualizado com sucesso!',
             'user' => $user,
-        ]);
+        ], 200);
     }
 
-    public function del($id): Psr7ResponseInterface
+    public function delete($id): Psr7ResponseInterface
     {
         $user = $this->container->get('user');
 
@@ -150,7 +174,7 @@ final class UserController extends AbstractController
             ], 403);
         }
 
-        if (! $id) {
+        if (!$id) {
             return $this->response->json([
                 'error' => 'O email é necessário para deletar o usuário.',
             ], 400);
@@ -158,7 +182,7 @@ final class UserController extends AbstractController
 
         $user = User::query()->where('uuid', $id)->first();
 
-        if (! $user) {
+        if (!$user) {
             return $this->response->json([
                 'error' => 'Usuário não encontrado.',
             ], 404);
@@ -168,7 +192,7 @@ final class UserController extends AbstractController
 
         return $this->response->json([
             'message' => 'Usuário deletado com sucesso!',
-        ]);
+        ], 200);
     }
 
     public function permission(RequestInterface $request, $uuid)
@@ -184,7 +208,7 @@ final class UserController extends AbstractController
         if (in_array('admin', unserialize($user->permission)) === false) {
             return $this->response->json(
                 [
-                    'error' => 'Você não tem permissão para autalizar este produto.',
+                    'error' => 'Você não tem permissão para atualizar este produto.',
                 ],
                 403
             );
@@ -199,6 +223,27 @@ final class UserController extends AbstractController
         return $this->response->json([
             'message' => 'Usuário atualizado com sucesso!',
             'user' => $user,
-        ]);
+        ], 200);
+    }
+
+    public function alterUserPermission(RequestInterface $request, $uuid){
+
+        $user = User::query()->where('uuid', $uuid)->first();
+
+        if(empty($user)) {
+            return $this->response->json([
+                'error' => 'Usuário não encontrado.',
+                ], 404);
+        }
+
+        $user->permission = serialize($request->input('permissions'));
+        $user->save;
+
+        return $this->response->json([
+            'message' => 'Permissoes de usuário atualizadas com sucesso!',
+            'user' => $user,
+            'status' => 200
+        ],200);
+
     }
 }
